@@ -1,3 +1,6 @@
+# @author Kayden Ions
+# @date 04/08/2026
+
 # Metric function with two parameters.
 # @param1: <type array(dict(pid, arrival, burst, priority))> - Consists of an array of all jobs in the inital job query
 # @param2: <type array(dict(pid, start, end))> - Consists of an array of the corresponding jobs in gantt form. 
