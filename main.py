@@ -1,5 +1,7 @@
 import sys #importing sys to access arguments
 import json #importing json to use json files
+from priority_scheduling import priority
+
 
 #function to load data
 def load_data(file_name):
@@ -32,11 +34,6 @@ def sjf(input_dict):
 def round_robin(input_dict):
     results = {}
     #write round robin algorithm here
-    return results
-
-def priority(input_dict):
-    results = {}
-    #write priority algorithm here
     return results
 
 file_name = sys.argv[1] #the input filename
