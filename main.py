@@ -43,7 +43,8 @@ def load_data(file_name):
 
 #function to provide output
 def output_data(results): #assuming results is a dictionary
-    output_data = json.dumps(results)
+    # json with indentation fpr readability
+    output_data = json.dumps(results, indent=4)
     print(output_data)
 
 #All algorithm methods
