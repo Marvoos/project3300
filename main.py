@@ -1,6 +1,5 @@
 import sys #importing sys to access arguments
 import json #importing json to use json files
-from priority_scheduling import priority
 from metricsCalc import metrics
 
 # normalize JSON keys/values: strip whitespace from keys and string values
@@ -48,10 +47,82 @@ def output_data(results): #assuming results is a dictionary
     print(output_data)
 
 #All algorithm methods
-def fifo(input_dict):
-    results = {}
-    #write round robin algorithm here
-    return results
+
+## Author: Serge Rumyantsev
+## Date: April 15, 2026
+
+def fifo(data):
+    
+    #extract the list of jobs from input data
+    #each job has: pid, arrival, burst, priority
+    jobs = data["jobs"]
+    
+    #sort jobs by arrival time (FIFO)
+    #for same arrival time, sort by PID lexicographically
+    jobs_sorted = sorted(jobs, key=lambda x: (x["arrival"], x["pid"]))
+    
+    #gantt chart will store execution segments
+    #each segment: {"pid": "A", "start": 0, "end": 6}
+    gantt = []
+    
+    #track current CPU time as we simulate execution
+    current_time = 0
+    
+    #dictionaries to store metrics for each process
+    turnaround = {}  #completion time - arrival time
+    waiting = {}     #start time - arrival time
+    
+    #process each job in FIFO order
+    for job in jobs_sorted:
+        #if CPU is idle (current_time < next job's arrival),
+        #jump forward to when the next job arrives
+        #handles gaps between processes
+        if current_time < job["arrival"]:
+            current_time = job["arrival"]
+        
+        #record when process starts executing
+        start = current_time
+        
+        #calculate when it finishes (start + burst time)
+        #Non-preemptive: runs entire burst at once
+        end = current_time + job["burst"]
+        
+        #add this execution segment to Gantt chart
+        gantt.append({
+            "pid": job["pid"], 
+            "start": start, 
+            "end": end
+        })
+        
+        #calculate turnaround time: time from arrival to completion
+        #finish time - arrival time
+        turnaround[job["pid"]] = end - job["arrival"]
+        
+        #calculate waiting time (time spent in ready queue)
+        #start time - arrival time
+        waiting[job["pid"]] = start - job["arrival"]
+        
+        #advance current time to the end of this process
+        current_time = end
+    
+    #calculate average turnaround time across all processes
+    avg_turnaround = sum(turnaround.values()) / len(turnaround)
+    
+    #calculate average waiting time across processes
+    avg_waiting = sum(waiting.values()) / len(waiting)
+    
+    #return results in JSON format
+    return {
+        "policy": "FIFO",    #Algorithm name
+        "gantt": gantt,                       
+        "metrics": {
+            "turnaround": turnaround, #per-process turnaround times
+            "waiting": waiting,       #per-process waiting times
+            "avg_turnaround": round(avg_turnaround, 2),  #average (2 decimals)
+            "avg_waiting": round(avg_waiting, 2)  #average (2 decimals)
+        }
+    }
+
 
 def sjf(input_dict):
     results = {
@@ -184,6 +255,71 @@ def round_robin(input_dict):
             ready_queue.append(current)
 
     results["metrics"] = metrics(input_dict_jobs, results["gantt"])
+    return results
+
+# @author Kayden Ions
+# @date 04/08/2026
+
+# Non-preemptive priority scheduling.
+# 'Higher priority' directly correlated to 'higher number'
+def priority(input_dict):
+    # Result dictionary object
+    results = {
+        # Assign the policy name
+        "policy": "PRIORITY",
+        # Assign the gant property to an empty array
+        "gantt": [],
+    }
+
+    jobs = input_dict["jobs"].copy()
+    original_jobs = input_dict["jobs"].copy()
+    # Loop while the given scheduling policy object has jobs within the job array
+    # In this case, we will be removing the job from the input dictionary job array as they are assigned to the result gantt array
+    while len(jobs) > 0:
+        # Get current time
+        if len(results["gantt"]) == 0:
+            current_time = 0
+        else:
+            current_time = results["gantt"][-1]["end"]
+
+        nextProcess = None
+        # Loop through each job in the input dictionary jobs array
+        for job in jobs:
+            if job["arrival"] <= current_time:
+                # Only when the current job has an earlier or equal arrival time and a higher priority (lower priority value)...
+                if (nextProcess == None or job["priority"] > nextProcess["priority"] or (job["priority"] == nextProcess["priority"] and job["arrival"] < nextProcess["arrival"])):
+                    # ... the next process is assigned the current job as it is higher priority or earlier arrival time
+                    nextProcess = job
+        # After the for loop, find the starting value of the current process and ensure that if the next process has value none, select the next arriving job
+        if nextProcess is None:
+            nextProcess = min(jobs, key=lambda x: x["arrival"])
+        
+        # If this current process is the first process then assign the starting value the the arrival of the process
+        if (len(results["gantt"]) == 0):
+            currentStart = nextProcess["arrival"]
+        # Otherwise, if the arrival time of the current process is earlier than the end of the previous process..
+        elif (nextProcess["arrival"] <= results["gantt"][len(results["gantt"]) - 1]["end"]):
+            # Assign the start time to the end time of the previous process
+            currentStart = results["gantt"][len(results["gantt"]) - 1]["end"]
+        else:
+            # If all else, assign the start time to the arrival time of the current process
+            currentStart = nextProcess["arrival"]
+        
+        # After figuring out the starting time, append the following to the resulting gantt array
+        results["gantt"].append({
+            # The process id
+            "pid": nextProcess["pid"],
+            # The process' starting time
+            "start": currentStart,
+            # The process' end time which is the total time it takes for the process to finish
+            # This is the easiest way to tell whether an algorithm is non-preemptive
+            "end": currentStart + nextProcess["burst"]         
+        })
+        
+        jobs.remove(nextProcess)
+        
+    results["metrics"] = metrics(original_jobs, results["gantt"])  
+    # Return the results  
     return results
 
 file_name = sys.argv[1] #the input filename
